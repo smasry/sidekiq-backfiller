@@ -14,12 +14,6 @@ class MyWorker
                      backfiller_batch_size: 10,
                      backfiller_wait_time_till_next_run: 1.minute
 
-  def perform(...)
-    ...
-  end
-
-  private
-
   def backfill_query
     User.where(...)
   end

@@ -1,6 +1,6 @@
 RSpec.describe Sidekiq::Backfiller::Worker do
   before do
-    200.times { BackfillableModel.create!(first_name: "Samer", last_name: "Masry") }
+    200.times { BackfillableModel.create!(first_name: "John", last_name: "Smith") }
   end
 
   subject(:worker) do
@@ -38,7 +38,8 @@ RSpec.describe Sidekiq::Backfiller::Worker do
 
     it "executes the process_block" do
       worker_instance.perform(opts)
-      expect(BackfillableModel.first.name).to eq("#{BackfillableModel.first.first_name} #{BackfillableModel.first.last_name}")
+      record = BackfillableModel.first
+      expect(BackfillableModel.first.name).to eq("#{record.first_name} #{record.last_name}")
     end
 
     it "executes the process_block" do

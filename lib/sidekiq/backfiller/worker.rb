@@ -56,6 +56,10 @@ module Sidekiq
       def backfill_query
         raise NotImplementedError, "You must implement backfill_query"
       end
+
+      def process(record)
+        raise NotImplementedError, "You must implement process"
+      end
     end
   end
 end
