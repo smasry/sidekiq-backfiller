@@ -15,14 +15,14 @@ module Sidekiq
         # Max number of records to fetch from the database per batch
         cattr_accessor :backfiller_batch_size
         # Duration to wait before scheduling the next run
-        cattr_accessor :backfiller_spread_duration
+        cattr_accessor :backfiller_wait_time_till_next_run
       end
 
       class_methods do
-        def sidekiq_backfiller(backfiller_records_per_run: 500, backfiller_batch_size: 100, backfiller_spread_duration: 5.minutes)
+        def sidekiq_backfiller(backfiller_records_per_run: 500, backfiller_batch_size: 100, backfiller_wait_time_till_next_run: 5.minutes)
           self.backfiller_records_per_run = backfiller_records_per_run
           self.backfiller_batch_size = backfiller_batch_size
-          self.backfiller_spread_duration = backfiller_spread_duration
+          self.backfiller_wait_time_till_next_run = backfiller_wait_time_till_next_run
         end
       end
 
@@ -35,7 +35,8 @@ module Sidekiq
         backfill_data(start_id: start_id, finish_id: finish_id) do |batch|
           process_batch(batch)
         end
-        self.class.perform_in(backfiller_spread_duration, "start_id" => finish_id + 1) if finish_id < backfill_query.maximum(:id)
+
+        self.class.perform_in(backfiller_wait_time_till_next_run, "start_id" => finish_id + 1) if finish_id < backfill_query.maximum(:id)
       end
 
       def process_batch(batch)
@@ -50,6 +51,10 @@ module Sidekiq
         backfill_query.find_in_batches(start: start_id, finish: finish_id, batch_size: backfiller_batch_size) do |batch|
           yield batch
         end
+      end
+
+      def backfill_query
+        raise NotImplementedError, "You must implement backfill_query"
       end
     end
   end

@@ -12,7 +12,7 @@ class MyWorker
 
   sidekiq_backfiller backfiller_records_per_run: 100,
                      backfiller_batch_size: 10,
-                     backfiller_spread_duration: 1.minute
+                     backfiller_wait_time_till_next_run: 1.minute
 
   def perform(...)
     ...
