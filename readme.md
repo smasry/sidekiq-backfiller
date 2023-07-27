@@ -7,14 +7,12 @@
 
 ```ruby
 class MyWorker
-  include Sidekiq::Job
-  include Sidekiq::Backfiller
+  include Sidekiq::Worker
+  include Sidekiq::Backfiller::Worker
 
-  sidekiq_backfiller(
-    units_per_job: 1000,
-    batch_size: 500
-    spread_time: 1.minute
-  )
+  sidekiq_backfiller backfiller_records_per_run: 100,
+                     backfiller_batch_size: 10,
+                     backfiller_spread_duration: 1.minute
 
   def perform(...)
     ...
@@ -22,13 +20,12 @@ class MyWorker
 
   private
 
-  def backfill_base_query
-    # id range will be automatically calculated based on the last run and units_per_job
+  def backfill_query
     User.where(...)
   end
 
-  def process_record(record)
-    record.update!(full_name: "#{record.first_name} #{record.last_name}")
+  def process(record)
+    record.update!(name: "#{record.first_name} #{record.last_name}")
   end
 
 end
