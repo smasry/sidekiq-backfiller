@@ -5,12 +5,13 @@ RSpec.describe Sidekiq::Backfiller::Worker do
 
   subject(:worker) do
     Class.new do
-      include Sidekiq::Worker
+      include Sidekiq::Job
       include Sidekiq::Backfiller::Worker
 
       sidekiq_backfiller backfiller_records_per_run: 100,
         backfiller_batch_size: 10,
-        backfiller_wait_time_till_next_run: 1.minute
+        backfiller_wait_time_till_next_run: 1.minute,
+        backfiller_queue: :low
 
       def backfill_query
         BackfillableModel.all
@@ -36,14 +37,19 @@ RSpec.describe Sidekiq::Backfiller::Worker do
       worker_instance.perform(opts)
     end
 
-    it "executes the process_block" do
+    it "executes the process block" do
       worker_instance.perform(opts)
       record = BackfillableModel.first
       expect(BackfillableModel.first.name).to eq("#{record.first_name} #{record.last_name}")
     end
 
-    it "executes the process_block" do
-      expect(worker).to receive(:perform_in).with(1.minute, "start_id" => 101)
+    it "enqueues the next run" do
+      expect_any_instance_of(Sidekiq::Job::Setter).to receive(:perform_in).with(1.minute, "start_id" => 101)
+      worker_instance.perform(opts)
+    end
+
+    it "sets the queue" do
+      expect(worker).to receive(:set).with(queue: :low).and_call_original
       worker_instance.perform(opts)
     end
   end

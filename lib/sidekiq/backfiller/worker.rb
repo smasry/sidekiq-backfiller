@@ -16,13 +16,16 @@ module Sidekiq
         cattr_accessor :backfiller_batch_size
         # Duration to wait before scheduling the next run
         cattr_accessor :backfiller_wait_time_till_next_run
+        # Sidekiq queue to use for the backfiller
+        cattr_accessor :backfiller_queue
       end
 
       class_methods do
-        def sidekiq_backfiller(backfiller_records_per_run: 500, backfiller_batch_size: 100, backfiller_wait_time_till_next_run: 5.minutes)
+        def sidekiq_backfiller(backfiller_records_per_run: 500, backfiller_batch_size: 100, backfiller_wait_time_till_next_run: 5.minutes, backfiller_queue: :default)
           self.backfiller_records_per_run = backfiller_records_per_run
           self.backfiller_batch_size = backfiller_batch_size
           self.backfiller_wait_time_till_next_run = backfiller_wait_time_till_next_run
+          self.backfiller_queue = backfiller_queue
         end
       end
 
@@ -36,7 +39,7 @@ module Sidekiq
           process_batch(batch)
         end
 
-        self.class.perform_in(backfiller_wait_time_till_next_run, "start_id" => finish_id + 1) if finish_id < backfill_query.maximum(:id)
+        self.class.set(queue: backfiller_queue).perform_in(backfiller_wait_time_till_next_run, "start_id" => finish_id + 1) if finish_id < backfill_query.maximum(:id)
       end
 
       def process_batch(batch)
