@@ -13,7 +13,11 @@ class MyWorker
   sidekiq_backfiller records_per_run: 100,
                      batch_size: 10,
                      wait_time_till_next_run: 1.minute,
-                     queue: :low
+                     queue: :low,
+                     before_process_hook: ->(record) { record.first_name = record.first_name.upcase } ,
+                     after_process_hook: ->(record) { record.update!(processed: true) },
+                     before_batch_hook: ->(batch) { Sidekiq::Backfiller.logger.info("Processing Batch starting with #{batch.first.id}") },
+                     after_batch_hook: ->(batch) { Sidekiq::Backfiller.logger.info("Processed Batch starting with #{batch.first.id}") }
 
   def backfill_query
     User.where(...)
