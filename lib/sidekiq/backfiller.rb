@@ -7,11 +7,11 @@ module Sidekiq
   module Backfiller
     def self.logger
       @logger ||= begin
-        loggger = Logger.new($stdout)
-        loggger.formatter = proc do |severity, datetime, progname, msg|
+        logger = Logger.new($stdout)
+        logger.formatter = proc do |severity, datetime, progname, msg|
           "#{datetime}: [#{severity}] - #{msg}\n"
         end
-        loggger
+        logger
       end
     end
 

@@ -18,14 +18,26 @@ module Sidekiq
         cattr_accessor :backfiller_wait_time_till_next_run
         # Sidekiq queue to use for the backfiller
         cattr_accessor :backfiller_queue
+        # Callback before processing each record
+        cattr_accessor :before_process_hook
+        # Callback after processing each record
+        cattr_accessor :after_process_hook
+        # Callback before processing each batch
+        cattr_accessor :before_batch_hook
+        # Callback after processing each batch
+        cattr_accessor :after_batch_hook
       end
 
       class_methods do
-        def sidekiq_backfiller(records_per_run: 500, batch_size: 100, wait_time_till_next_run: 5.minutes, queue: :default)
+        def sidekiq_backfiller(records_per_run: 500, batch_size: 100, wait_time_till_next_run: 5.minutes, queue: :default, before_process_hook: nil, after_process_hook: nil, before_batch_hook: nil, after_batch_hook: nil)
           self.backfiller_records_per_run = records_per_run
           self.backfiller_batch_size = batch_size
           self.backfiller_wait_time_till_next_run = wait_time_till_next_run
           self.backfiller_queue = queue
+          self.before_process_hook = before_process_hook
+          self.after_process_hook = after_process_hook
+          self.before_batch_hook = before_batch_hook
+          self.after_batch_hook = after_batch_hook
         end
       end
 
@@ -51,12 +63,23 @@ module Sidekiq
         self.class.set(queue: backfiller_queue).perform_in(backfiller_wait_time_till_next_run, opts) if finish_id < backfill_query.maximum(:id)
       end
 
+      def backfill_query
+        raise NotImplementedError, "You must implement backfill_query"
+      end
+
+      def process_record(record)
+        raise NotImplementedError, "You must implement process"
+      end
+
+      protected
+
       def process_batch(batch)
         Sidekiq::Backfiller.logger.info "processing batch of #{batch.size} records starting with batch id #{batch.first.id}"
+        before_batch_hook.call(batch) if before_batch_hook.present?
         batch.each do |record|
-          Sidekiq::Backfiller.logger.debug("Processing record #{record.id}")
           process(record)
         end
+        after_batch_hook.call(batch) if after_batch_hook.present?
       end
 
       def backfill_data(start_id:, finish_id:, &block)
@@ -65,12 +88,10 @@ module Sidekiq
         end
       end
 
-      def backfill_query
-        raise NotImplementedError, "You must implement backfill_query"
-      end
-
       def process(record)
-        raise NotImplementedError, "You must implement process"
+        before_process_hook.call(record) if before_process_hook.present?
+        process_record(record)
+        after_process_hook.call(record) if after_process_hook.present?
       end
     end
   end

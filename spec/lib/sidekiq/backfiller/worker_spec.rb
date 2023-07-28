@@ -11,13 +11,14 @@ RSpec.describe Sidekiq::Backfiller::Worker do
       sidekiq_backfiller records_per_run: 100,
         batch_size: 10,
         wait_time_till_next_run: 1.minute,
-        queue: :low
+        queue: :low,
+        after_process_hook: ->(record) { record.update!(processed: true) }
 
       def backfill_query
         BackfillableModel.all
       end
 
-      def process(record)
+      def process_record(record)
         record.update!(name: "#{record.first_name} #{record.last_name}")
       end
     end
@@ -54,13 +55,19 @@ RSpec.describe Sidekiq::Backfiller::Worker do
     end
 
     it "allows overriding the end_id" do
-      expect(worker_instance).to receive(:process).exactly(59).times
+      expect(worker_instance).to receive(:process_record).exactly(59).times
       worker_instance.perform({"end_id" => 59})
     end
 
     it "keeps the end_id in the options" do
       expect_any_instance_of(Sidekiq::Job::Setter).to receive(:perform_in).with(1.minute, "start_id" => 101, "end_id" => 159)
       worker_instance.perform({"end_id" => 159})
+    end
+
+    it "calls the after process hook" do
+      worker_instance.perform(opts)
+      record = BackfillableModel.first
+      expect(record.processed).to eq true
     end
   end
 end

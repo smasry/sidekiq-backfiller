@@ -25,6 +25,8 @@ Sidekiq::Testing.fake!
 
 Dir[File.join(__dir__, "support/**/*.rb")].each { |f| require f }
 
+Sidekiq::Backfiller.logger = Logger.new("/dev/null")
+
 RSpec.configure do |config|
   # rspec-expectations config goes here. You can use an alternate
   # assertion/expectation library such as wrong or the stdlib/minitest
