@@ -17,7 +17,9 @@ class MyWorker
                      before_process_hook: ->(record) { record.first_name = record.first_name.upcase } ,
                      after_process_hook: ->(record) { record.update!(processed: true) },
                      before_batch_hook: ->(batch) { Sidekiq::Backfiller.logger.info("Processing Batch starting with #{batch.first.id}") },
-                     after_batch_hook: ->(batch) { Sidekiq::Backfiller.logger.info("Processed Batch starting with #{batch.first.id}") }
+                     after_batch_hook: ->(batch) { Sidekiq::Backfiller.logger.info("Processed Batch starting with #{batch.first.id}") },
+                     on_record_error: ->(record, e) { ... },
+                     on_batch_error: ->(batch, e) { ... }
 
   def backfill_query
     User.where(...)

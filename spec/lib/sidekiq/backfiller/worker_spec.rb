@@ -12,7 +12,9 @@ RSpec.describe Sidekiq::Backfiller::Worker do
         batch_size: 10,
         wait_time_till_next_run: 1.minute,
         queue: :low,
-        after_process_hook: ->(record) { record.update!(processed: true) }
+        after_process_hook: ->(record) { record.update!(processed: true) },
+        on_record_error: ->(record, e) { record.update!(record_error: true) },
+        on_batch_error: ->(batch, e) { batch.update_all(batch_error: true) }
 
       def backfill_query
         BackfillableModel.all
@@ -68,6 +70,18 @@ RSpec.describe Sidekiq::Backfiller::Worker do
       worker_instance.perform(opts)
       record = BackfillableModel.first
       expect(record.processed).to eq true
+    end
+
+    it "calls the on_record_error when there is an exception" do
+      allow(worker_instance).to receive(:process_record).with(anything).and_raise(StandardError)
+      worker_instance.perform(opts)
+      expect(BackfillableModel.first.record_error).to eq true
+    end
+
+    it "calls the on_batch_error when there is an exception" do
+      allow(worker_instance).to receive(:process_batch).with(anything).and_raise(StandardError)
+      worker_instance.perform(opts)
+      expect(BackfillableModel.first.batch_error).to eq true
     end
   end
 end

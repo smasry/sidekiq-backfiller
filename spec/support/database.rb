@@ -5,6 +5,8 @@ ActiveRecord::Schema.define do
     t.string :last_name
     t.string :name
     t.boolean :processed, default: false
+    t.boolean :record_error, default: false
+    t.boolean :batch_error, default: false
   end
 end
 

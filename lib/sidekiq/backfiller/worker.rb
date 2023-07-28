@@ -26,10 +26,14 @@ module Sidekiq
         cattr_accessor :before_batch_hook
         # Callback after processing each batch
         cattr_accessor :after_batch_hook
+        # Callback when a record raises an error
+        cattr_accessor :on_record_error
+        # Callback when a batch raises an error
+        cattr_accessor :on_batch_error
       end
 
       class_methods do
-        def sidekiq_backfiller(records_per_run: 500, batch_size: 100, wait_time_till_next_run: 5.minutes, queue: :default, before_process_hook: nil, after_process_hook: nil, before_batch_hook: nil, after_batch_hook: nil)
+        def sidekiq_backfiller(records_per_run: 500, batch_size: 100, wait_time_till_next_run: 5.minutes, queue: :default, before_process_hook: nil, after_process_hook: nil, before_batch_hook: nil, after_batch_hook: nil, on_record_error: nil, on_batch_error: nil)
           self.backfiller_records_per_run = records_per_run
           self.backfiller_batch_size = batch_size
           self.backfiller_wait_time_till_next_run = wait_time_till_next_run
@@ -38,6 +42,8 @@ module Sidekiq
           self.after_process_hook = after_process_hook
           self.before_batch_hook = before_batch_hook
           self.after_batch_hook = after_batch_hook
+          self.on_record_error = on_record_error
+          self.on_batch_error = on_batch_error
         end
       end
 
@@ -54,6 +60,12 @@ module Sidekiq
         Sidekiq::Backfiller.logger.info("Backfilling records from #{start_id} to #{finish_id} with batch size of #{backfiller_batch_size}")
         backfill_data(start_id: start_id, finish_id: finish_id) do |batch|
           process_batch(batch)
+        rescue => e
+          if on_batch_error.present?
+            on_batch_error.call(batch, e)
+          else
+            raise e
+          end
         end
         opts = {
           "start_id" => finish_id + 1
@@ -83,14 +95,22 @@ module Sidekiq
       end
 
       def backfill_data(start_id:, finish_id:, &block)
-        backfill_query.find_in_batches(start: start_id, finish: finish_id, batch_size: backfiller_batch_size) do |batch|
+        backfill_query.in_batches(of: backfiller_batch_size, start: start_id, finish: finish_id) do |batch|
           yield batch
         end
       end
 
       def process(record)
         before_process_hook.call(record) if before_process_hook.present?
-        process_record(record)
+        begin
+          process_record(record)
+        rescue => e
+          if on_record_error.present?
+            on_record_error.call(record, e)
+          else
+            raise e
+          end
+        end
         after_process_hook.call(record) if after_process_hook.present?
       end
     end
