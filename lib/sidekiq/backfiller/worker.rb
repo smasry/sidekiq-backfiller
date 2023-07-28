@@ -32,14 +32,23 @@ module Sidekiq
       def perform(opts = {})
         opts = opts.deep_symbolize_keys!
         start_id = opts[:start_id] || 1
+        end_id = opts[:end_id] || -1
         finish_id = start_id + backfiller_records_per_run - 1
+
+        if end_id.positive? && end_id < finish_id
+          finish_id = end_id
+        end
 
         Sidekiq::Backfiller.logger.info("Backfilling records from #{start_id} to #{finish_id} with batch size of #{backfiller_batch_size}")
         backfill_data(start_id: start_id, finish_id: finish_id) do |batch|
           process_batch(batch)
         end
+        opts = {
+          "start_id" => finish_id + 1
+        }
+        opts["end_id"] = end_id if end_id.positive?
 
-        self.class.set(queue: backfiller_queue).perform_in(backfiller_wait_time_till_next_run, "start_id" => finish_id + 1) if finish_id < backfill_query.maximum(:id)
+        self.class.set(queue: backfiller_queue).perform_in(backfiller_wait_time_till_next_run, opts) if finish_id < backfill_query.maximum(:id)
       end
 
       def process_batch(batch)

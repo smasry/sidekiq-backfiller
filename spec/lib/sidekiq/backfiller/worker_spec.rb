@@ -52,5 +52,15 @@ RSpec.describe Sidekiq::Backfiller::Worker do
       expect(worker).to receive(:set).with(queue: :low).and_call_original
       worker_instance.perform(opts)
     end
+
+    it "allows overriding the end_id" do
+      expect(worker_instance).to receive(:process).exactly(59).times
+      worker_instance.perform({"end_id" => 59})
+    end
+
+    it "keeps the end_id in the options" do
+      expect_any_instance_of(Sidekiq::Job::Setter).to receive(:perform_in).with(1.minute, "start_id" => 101, "end_id" => 159)
+      worker_instance.perform({"end_id" => 159})
+    end
   end
 end
