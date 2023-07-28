@@ -21,11 +21,11 @@ module Sidekiq
       end
 
       class_methods do
-        def sidekiq_backfiller(backfiller_records_per_run: 500, backfiller_batch_size: 100, backfiller_wait_time_till_next_run: 5.minutes, backfiller_queue: :default)
-          self.backfiller_records_per_run = backfiller_records_per_run
-          self.backfiller_batch_size = backfiller_batch_size
-          self.backfiller_wait_time_till_next_run = backfiller_wait_time_till_next_run
-          self.backfiller_queue = backfiller_queue
+        def sidekiq_backfiller(records_per_run: 500, batch_size: 100, wait_time_till_next_run: 5.minutes, queue: :default)
+          self.backfiller_records_per_run = records_per_run
+          self.backfiller_batch_size = batch_size
+          self.backfiller_wait_time_till_next_run = wait_time_till_next_run
+          self.backfiller_queue = queue
         end
       end
 

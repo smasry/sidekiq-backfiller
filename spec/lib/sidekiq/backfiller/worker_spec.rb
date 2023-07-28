@@ -8,10 +8,10 @@ RSpec.describe Sidekiq::Backfiller::Worker do
       include Sidekiq::Job
       include Sidekiq::Backfiller::Worker
 
-      sidekiq_backfiller backfiller_records_per_run: 100,
-        backfiller_batch_size: 10,
-        backfiller_wait_time_till_next_run: 1.minute,
-        backfiller_queue: :low
+      sidekiq_backfiller records_per_run: 100,
+        batch_size: 10,
+        wait_time_till_next_run: 1.minute,
+        queue: :low
 
       def backfill_query
         BackfillableModel.all
