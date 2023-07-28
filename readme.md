@@ -24,4 +24,15 @@ class MyWorker
   end
 
 end
+
+## Execute all records returned from backfill_query
+MyWorker.perform_async
+
+
+# Execute a range of ID's
+opts = {
+  "start_id" => 100
+  "end_id" => 1000
+}
+MyWorker.perform_async(opts)
 ```
