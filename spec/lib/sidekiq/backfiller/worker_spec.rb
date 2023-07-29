@@ -47,7 +47,17 @@ RSpec.describe Sidekiq::Backfiller::Worker do
     end
 
     it "enqueues the next run" do
-      expect_any_instance_of(Sidekiq::Job::Setter).to receive(:perform_in).with(1.minute, "start_id" => 101)
+      next_opts = {
+        "start_id" => 101,
+        "backfiller" => {
+          "metrics" => {
+            "processed" => 100,
+            "errors" => 0
+          }
+        }
+      }
+
+      expect_any_instance_of(Sidekiq::Job::Setter).to receive(:perform_in).with(1.minute, next_opts)
       worker_instance.perform(opts)
     end
 
@@ -62,7 +72,17 @@ RSpec.describe Sidekiq::Backfiller::Worker do
     end
 
     it "keeps the end_id in the options" do
-      expect_any_instance_of(Sidekiq::Job::Setter).to receive(:perform_in).with(1.minute, "start_id" => 101, "end_id" => 159)
+      next_opts = {
+        "start_id" => 101,
+        "end_id" => 159,
+        "backfiller" => {
+          "metrics" => {
+            "processed" => 100,
+            "errors" => 0
+          }
+        }
+      }
+      expect_any_instance_of(Sidekiq::Job::Setter).to receive(:perform_in).with(1.minute, next_opts)
       worker_instance.perform({"end_id" => 159})
     end
 

@@ -3,6 +3,7 @@
 require "sidekiq"
 require "active_support/core_ext/hash/keys"
 require "active_support/concern"
+require_relative "metrics"
 
 module Sidekiq
   module Backfiller
@@ -51,6 +52,7 @@ module Sidekiq
         opts = opts.deep_symbolize_keys!
         start_id = opts[:start_id] || 1
         end_id = opts[:end_id] || -1
+        @metrics = Metrics.new(processed: opts.dig(:backfiller, :processed), errors: opts.dig(:backfiller, :errors))
         finish_id = start_id + backfiller_records_per_run - 1
 
         if end_id.positive? && end_id < finish_id
@@ -67,12 +69,16 @@ module Sidekiq
             raise e
           end
         end
-        opts = {
-          "start_id" => finish_id + 1
-        }
-        opts["end_id"] = end_id if end_id.positive?
 
-        self.class.set(queue: backfiller_queue).perform_in(backfiller_wait_time_till_next_run, opts) if finish_id < backfill_query.maximum(:id)
+        processed = ((opts.dig(:backfiller, :processed) || 0) - @metrics.processed).abs
+        errors = ((opts.dig(:backfiller, :errors) || 0) - @metrics.errors).abs
+        Sidekiq::Backfiller.logger.info("Batch completed. Processed #{processed} records with #{errors} errors")
+
+        if finish_id < backfill_query.maximum(:id)
+          self.class.set(queue: backfiller_queue).perform_in(backfiller_wait_time_till_next_run, next_run_opts(finish_id, end_id, @metrics))
+        else
+          Sidekiq::Backfiller.logger.info("Backfill Completed. Processed #{@metrics.processed} records with #{@metrics.errors} errors")
+        end
       end
 
       def backfill_query
@@ -84,6 +90,15 @@ module Sidekiq
       end
 
       protected
+
+      def next_run_opts(finish_id, end_id, metrics)
+        opts = {
+          "start_id" => finish_id + 1
+        }
+
+        opts["end_id"] = end_id if end_id.positive?
+        opts.merge("backfiller" => {"metrics" => metrics.to_h})
+      end
 
       def process_batch(batch)
         Sidekiq::Backfiller.logger.info "processing batch of #{batch.size} records starting with batch id #{batch.first.id}"
@@ -104,7 +119,9 @@ module Sidekiq
         before_process_hook.call(record) if before_process_hook.present?
         begin
           process_record(record)
+          @metrics.increment_processed
         rescue => e
+          @metrics.increment_errors
           if on_record_error.present?
             on_record_error.call(record, e)
           else
