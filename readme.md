@@ -1,4 +1,4 @@
-## Sidekiq - spread_filler
+## Sidekiq - backfiller
 
 * Things to solve for
   * Ability to spread out the work without exhausting resources
